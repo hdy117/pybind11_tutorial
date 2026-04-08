@@ -1,16 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-project(pybind11_trampoline_example LANGUAGES CXX)
+project(pybind11_visual_guide_examples LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-find_package(pybind11 CONFIG REQUIRED)
-
-pybind11_add_module(trampoline_example
-    src/bindings.cpp
-    src/describe.cpp
-    src/describe_pure.cpp
-)
-
-target_include_directories(trampoline_example PRIVATE src)
+add_subdirectory(examples/12_minimal_binding)
+add_subdirectory(examples/17_class_binding)
+add_subdirectory(examples/18_lifetime)
+add_subdirectory(examples/19_exceptions)
+add_subdirectory(examples/20_trampoline)
+add_subdirectory(examples/21_gil)
+add_subdirectory(examples/22_zero_copy)
+add_subdirectory(examples/23_reinvent_minimal_binding)

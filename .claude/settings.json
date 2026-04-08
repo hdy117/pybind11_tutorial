@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 \"/ntfs_shared/work/git/pybind11_tutorial/examples/18_lifetime/demo.py\")",
+      "Bash(chmod +x \"/ntfs_shared/work/git/pybind11_tutorial/examples/12_minimal_binding/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/17_class_binding/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/18_lifetime/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/19_exceptions/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/20_trampoline/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/21_gil/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/22_zero_copy/build.sh\" \"/ntfs_shared/work/git/pybind11_tutorial/examples/23_reinvent_minimal_binding/build.sh\")",
+      "Bash(\"/ntfs_shared/work/git/pybind11_tutorial/examples/12_minimal_binding/build.sh\")"
+    ]
+  }
+}

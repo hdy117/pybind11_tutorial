@@ -1968,6 +1968,8 @@ mylib.add(1, 2)
 
 # 12. pybind11 的最小例子
 
+对应示例目录：`examples/12_minimal_binding/`
+
 ```cpp
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -2173,6 +2175,8 @@ Python 运行时看到它是一个可调用对象
 
 # 17. pybind11 绑定类的原理
 
+对应示例目录：`examples/17_class_binding/`
+
 看一个类：
 
 ```cpp
@@ -2226,6 +2230,8 @@ Python Pet object
 ---
 
 # 18. 生命周期：为什么 pybind11 比“能调用”更难的是“谁拥有对象”
+
+对应示例目录：`examples/18_lifetime/`
 
 这是绑定系统里最容易踩坑的地方。
 
@@ -2680,6 +2686,8 @@ Pet* get_pet();
 
 # 19. pybind11 与异常：为什么 C++ throw 能变成 Python exception
 
+对应示例目录：`examples/19_exceptions/`
+
 如果 C++ 函数：
 
 ```cpp
@@ -2720,6 +2728,8 @@ C++ exception  ->  Python exception state
 ---
 
 # 20. pybind11 与继承 / trampoline
+
+对应示例目录：`examples/20_trampoline/`
 
 这一节建议你把 **trampoline** 先记成一句话：
 
@@ -3813,38 +3823,38 @@ PYBIND11_OVERRIDE_PURE(...)
 
 ---
 
-## 20.20 对照你当前示例工程里的文件
+## 20.20 对照 `examples/20_trampoline/` 里的文件
 
-如果你已经看过当前目录下的示例代码，这几部分可以这样对应：
+如果你已经看过 `examples/20_trampoline/` 目录下的示例代码，这几部分可以这样对应：
 
-### `src/animal.h`
+### `examples/20_trampoline/src/animal.h`
 
 ```text
 普通 C++ 基类
 ```
 
-### `src/py_animal_trampoline.h`
+### `examples/20_trampoline/src/py_animal_trampoline.h`
 
 ```text
 trampoline class
 这里是“C++ virtual -> Python override”的核心桥
 ```
 
-### `src/describe.cpp`
+### `examples/20_trampoline/src/describe.cpp`
 
 ```text
 C++ 发起虚调用的地方
 用于证明 trampoline 真的生效
 ```
 
-### `src/bindings.cpp`
+### `examples/20_trampoline/src/bindings.cpp`
 
 ```text
 把 Animal 和 PyAnimal 绑定到 pybind11
 关键写法是 class_<Animal, PyAnimal>
 ```
 
-### `demo.py`
+### `examples/20_trampoline/demo.py`
 
 ```text
 Python 里继承 Animal
@@ -3872,6 +3882,8 @@ trampoline 不是为了“让 Python 能继承 C++”这么简单，
 ---
 
 # 21. pybind11 与 GIL：什么时候该拿锁，什么时候该放锁
+
+对应示例目录：`examples/21_gil/`
 
 这一章的核心目标，不是死记 API，而是先建立一个非常稳的判断边界：
 
@@ -4597,6 +4609,8 @@ GIL 管的是 Python 世界；
 ---
 
 # 22. pybind11 与零拷贝 / buffer / numpy：性能为什么可能很好
+
+对应示例目录：`examples/22_zero_copy/`
 
 很多人用 pybind11，不只是为了“能调用 C++”，更是为了：
 
@@ -5387,6 +5401,8 @@ pybind11 的零拷贝本质不是“神奇地更快”
 ---
 
 # 23. 如果你要“重新发明 pybind11”，最小可行产品怎么做？
+
+对应示例目录：`examples/23_reinvent_minimal_binding/`
 
 不要一上来想完整 pybind11。你需要先发明一个最小 binding system。
 
