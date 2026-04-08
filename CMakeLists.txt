@@ -10,6 +10,7 @@ find_package(pybind11 CONFIG REQUIRED)
 pybind11_add_module(trampoline_example
     src/bindings.cpp
     src/describe.cpp
+    src/describe_pure.cpp
 )
 
 target_include_directories(trampoline_example PRIVATE src)

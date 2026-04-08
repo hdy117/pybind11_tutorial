@@ -2928,7 +2928,239 @@ std::string sound() const override {
 
 ---
 
-## 20.6 第三个代码点：绑定时为什么要写 `class_<Animal, PyAnimal>`
+## 20.6 第三个代码点：把 `PYBIND11_OVERRIDE(...)` 单独拆开
+
+这是 trampoline 里最关键的一行：
+
+```cpp
+PYBIND11_OVERRIDE(
+    std::string,
+    Animal,
+    sound
+);
+```
+
+它的三个核心参数分别表示：
+
+### 1) 返回类型
+
+```cpp
+std::string
+```
+
+意思是：
+
+```text
+如果最终调到了 Python override，
+Python 返回值需要被转换回 std::string
+```
+
+---
+
+### 2) C++ 父类
+
+```cpp
+Animal
+```
+
+意思是：
+
+```text
+这是在 Animal 的虚函数体系里做 override
+如果 Python 没有重写，需要按 Animal 的语义处理 fallback
+```
+
+---
+
+### 3) 方法名
+
+```cpp
+sound
+```
+
+意思是：
+
+```text
+去 Python 对象里找名为 sound 的 override
+```
+
+所以整句合在一起的直觉就是：
+
+```text
+“我正在 override Animal::sound；
+如果 Python 子类实现了 sound，就调用它；
+并把结果转回 std::string。”
+```
+
+---
+
+## 20.6.1 把这行宏翻译成“接近真实意图的伪代码”
+
+你可以先把它脑补成这样：
+
+```cpp
+std::string sound() const override {
+    // 确保持有 GIL
+    // 找到与当前 C++ 对象关联的 Python 对象
+    // 检查 Python 子类是否定义了 sound
+    // 如果定义了：调用 Python sound(self)
+    // 把 Python 返回值转成 std::string
+    // 如果没定义：回退到 Animal::sound()
+}
+```
+
+注意这不是 pybind11 的真实源码，只是帮助你建立心智模型。
+
+关键是你要知道：
+
+- 它不是普通函数调用
+- 它内部会跨回 Python 运行时
+- 它既牵涉虚函数分派，也牵涉类型转换和 GIL
+
+---
+
+## 20.6.2 为什么这里隐含了 GIL
+
+trampoline 一旦要回调 Python，就一定会做下面这些事情：
+
+- 找 Python 对象
+- 查 Python 方法
+- 调 Python 代码
+- 取 Python 返回值
+
+这些全部都属于：
+
+```text
+碰 Python runtime
+```
+
+所以底层必须保证持有 GIL。
+
+这也是为什么 trampoline 不能只被理解成“C++ 语法层面的 override 技巧”，它本质上还是一段跨 runtime 的桥接逻辑。
+
+---
+
+## 20.6.3 为什么 fallback 很重要
+
+如果基类有默认实现：
+
+```cpp
+class Animal {
+public:
+    virtual std::string sound() const {
+        return "...";
+    }
+};
+```
+
+那么 Python 可能根本不去 override：
+
+```python
+class SilentAnimal(mylib.Animal):
+    pass
+```
+
+这时我们通常希望：
+
+```python
+a = SilentAnimal()
+print(mylib.describe(a))
+```
+
+仍然能退回到：
+
+```text
+Animal::sound()
+```
+
+所以普通 `PYBIND11_OVERRIDE` 的语义里，fallback 是设计的一部分，不是补丁。
+
+---
+
+## 20.6.4 一个最小“默认实现 fallback”例子
+
+### C++ 基类
+
+```cpp
+class Animal {
+public:
+    virtual std::string sound() const {
+        return "...";
+    }
+};
+```
+
+### trampoline
+
+```cpp
+class PyAnimal : public Animal {
+public:
+    using Animal::Animal;
+
+    std::string sound() const override {
+        PYBIND11_OVERRIDE(
+            std::string,
+            Animal,
+            sound
+        );
+    }
+};
+```
+
+### Python 不 override
+
+```python
+class SilentAnimal(mylib.Animal):
+    pass
+```
+
+### 效果
+
+```python
+a = SilentAnimal()
+print(a.sound())
+print(mylib.describe(a))
+```
+
+这两个调用都应该退回到基类默认实现。
+
+---
+
+## 20.6.5 一个最小“Python override 接管”例子
+
+### Python override
+
+```python
+class Dog(mylib.Animal):
+    def sound(self):
+        return "woof"
+```
+
+### 验证
+
+```python
+d = Dog()
+print(d.sound())
+print(mylib.describe(d))
+```
+
+第一行说明：
+
+```text
+Python 子类方法本身正常工作
+```
+
+第二行说明：
+
+```text
+C++ 虚调用经由 trampoline 成功回到了 Python
+```
+
+所以真正证明 trampoline 的，是第二行。
+
+---
+
+## 20.7 第四个代码点：绑定时为什么要写 `class_<Animal, PyAnimal>`
 
 ```cpp
 py::class_<Animal, PyAnimal>(m, "Animal")
@@ -2955,7 +3187,7 @@ py::class_<Animal>(m, "Animal")
 
 ---
 
-## 20.7 第四个代码点：真正证明 trampoline 生效的 C++ 调用函数
+## 20.8 第五个代码点：真正证明 trampoline 生效的 C++ 调用函数
 
 很多人误以为下面这种就已经证明成功：
 
@@ -2997,7 +3229,7 @@ C++ 的 virtual dispatch
 
 ---
 
-## 20.8 第五个代码点：Python 侧 override 长什么样
+## 20.9 第六个代码点：Python 侧 override 长什么样
 
 ```python
 class Dog(mylib.Animal):
@@ -3029,7 +3261,7 @@ Python Dog instance
 
 ---
 
-## 20.9 一个完整调用链图
+## 20.10 一个完整调用链图
 
 把上面几段代码串起来：
 
@@ -3070,7 +3302,7 @@ trampoline 去查 Python override
 
 ---
 
-## 20.10 `PYBIND11_OVERRIDE` 和 `PYBIND11_OVERRIDE_PURE` 的区别
+## 20.11 `PYBIND11_OVERRIDE` 和 `PYBIND11_OVERRIDE_PURE` 的区别
 
 ### 情况 A：C++ 基类有默认实现
 
@@ -3138,7 +3370,211 @@ std::string sound() const override {
 
 ---
 
-## 20.11 trampoline 和普通绑定的本质区别
+## 20.12 一个最小 pure virtual trampoline 示例
+
+前面讲的是“基类有默认实现”的版本。
+
+现在再看一个 **纯虚函数** 版本，这样你会更清楚为什么需要 `PYBIND11_OVERRIDE_PURE`。
+
+### 1) 纯虚 C++ 基类
+
+```cpp
+class AnimalPure {
+public:
+    virtual std::string sound() const = 0;
+    virtual ~AnimalPure() = default;
+};
+```
+
+这里的意思是：
+
+```text
+C++ 自己不给默认 sound()
+子类必须实现
+```
+
+---
+
+### 2) pure trampoline
+
+```cpp
+class PyAnimalPure : public AnimalPure {
+public:
+    using AnimalPure::AnimalPure;
+
+    std::string sound() const override {
+        PYBIND11_OVERRIDE_PURE(
+            std::string,
+            AnimalPure,
+            sound
+        );
+    }
+};
+```
+
+这里和普通版本唯一关键区别就是：
+
+```cpp
+PYBIND11_OVERRIDE_PURE(...)
+```
+
+它表达的是：
+
+```text
+Python 必须提供 override
+否则这是错误，不允许 fallback
+```
+
+---
+
+### 3) pybind11 绑定
+
+```cpp
+py::class_<AnimalPure, PyAnimalPure>(m, "AnimalPure")
+    .def(py::init<>())
+    .def("sound", &AnimalPure::sound);
+```
+
+---
+
+### 4) Python 正确写法
+
+```python
+class Bird(mylib.AnimalPure):
+    def sound(self):
+        return "tweet"
+```
+
+这样才满足 pure virtual 契约。
+
+---
+
+### 5) Python 错误写法
+
+```python
+class BrokenAnimal(mylib.AnimalPure):
+    pass
+```
+
+这类类如果最终走到 `sound()`，就会报错，因为：
+
+```text
+C++ 要求必须实现
+Python 却没有 override
+```
+
+所以 pure virtual 版本比普通 trampoline 更严格。
+
+---
+
+## 20.13 没有 trampoline 时会发生什么
+
+这一节非常值得建立直觉。
+
+如果没有 trampoline，你就没有那个中间子类去 override C++ 虚函数。
+
+那 C++ 里发生：
+
+```cpp
+describe(const Animal& a) {
+    return a.sound();
+}
+```
+
+时，更像是：
+
+```text
+C++ 只能按自己那套动态类型 / vtable 规则找实现
+它不会自动跑去 Python 子类里查方法
+```
+
+所以没有 trampoline 时，你最常见会遇到的是：
+
+- 根本桥不到 Python override
+- 只能走 C++ 默认实现
+- 或 pure virtual 场景直接失败
+
+### 对照图
+
+#### 没有 trampoline
+
+```text
+C++ virtual call
+   ↓
+只在 C++ vtable 世界里查找
+   ↓
+看不到 Python override
+```
+
+#### 有 trampoline
+
+```text
+C++ virtual call
+   ↓
+命中 trampoline override
+   ↓
+trampoline 去 Python 找 override
+   ↓
+成功回调 Python
+```
+
+所以 trampoline 不是“可有可无的小帮手”，而是这条跨语言虚调用链上的必要桥梁。
+
+---
+
+## 20.14 trampoline / vtable / Python object 三层关系图
+
+你可以把整个系统想成三层：
+
+```text
+┌──────────────────────────────┐
+│ Python 子类对象               │
+│ class Dog(Animal): ...        │
+└──────────────┬───────────────┘
+               │ Python 方法 override
+               ▼
+┌──────────────────────────────┐
+│ trampoline: PyAnimal          │
+│ C++ 子类 + override sound()   │
+│ PYBIND11_OVERRIDE(...)        │
+└──────────────┬───────────────┘
+               │ 参与 C++ 虚分派
+               ▼
+┌──────────────────────────────┐
+│ C++ 基类 Animal               │
+│ virtual std::string sound()   │
+└──────────────────────────────┘
+```
+
+### 三层各自负责什么
+
+#### C++ 基类层
+
+负责：
+
+- 定义 virtual 接口
+- 提供默认实现或 pure virtual 契约
+
+#### trampoline 层
+
+负责：
+
+- 进入 C++ vtable 世界
+- override 虚函数
+- 把调用转发到 Python
+
+#### Python 子类层
+
+负责：
+
+- 用自然 Python 语法写 override
+- 提供最终行为实现
+
+这个三层图一旦记住，trampoline 就不容易再混乱。
+
+---
+
+## 20.15 trampoline 和普通绑定的本质区别
 
 ### 普通函数绑定
 
@@ -3172,7 +3608,7 @@ Python override 接管行为
 
 ---
 
-## 20.12 为什么 trampoline 一定要是“中间子类”
+## 20.16 为什么 trampoline 一定要是“中间子类”
 
 很多人会问：
 
@@ -3194,7 +3630,7 @@ C++ virtual dispatch 依赖对象的动态类型和 vtable
 
 ---
 
-## 20.13 trampoline 和 GIL 的关系
+## 20.17 trampoline 和 GIL 的关系
 
 只要 trampoline 要回调 Python，它就一定会碰 Python 运行时。
 
@@ -3217,7 +3653,7 @@ trampoline = 虚函数桥接 + Python 回调
 
 ---
 
-## 20.14 最小完整示例：按知识点拆开的版本
+## 20.18 最小完整示例：按知识点拆开的版本
 
 ### 1) C++ 基类
 
@@ -3286,7 +3722,7 @@ print(mylib.describe(d)) # woof
 
 ---
 
-## 20.15 常见误区
+## 20.19 常见误区
 
 ### 误区 1：`d.sound()` 能调通，就说明 trampoline 没问题
 
@@ -3353,7 +3789,7 @@ PYBIND11_OVERRIDE_PURE(...)
 
 ---
 
-## 20.16 对照你当前示例工程里的文件
+## 20.20 对照你当前示例工程里的文件
 
 如果你已经看过当前目录下的示例代码，这几部分可以这样对应：
 
@@ -3395,7 +3831,7 @@ Python 里继承 Animal
 
 ---
 
-## 20.17 一句话总结
+## 20.21 一句话总结
 
 ```text
 trampoline 不是为了“让 Python 能继承 C++”这么简单，
